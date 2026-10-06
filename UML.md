@@ -1,4 +1,4 @@
-# Estrutura do Sistema de Adoção (UML)
+# Estrutura do Sistema de Adoção de Animais (Textual)
 
 ## Entidades
 * Animal
@@ -11,8 +11,6 @@
 * Repositório
 * Política
 
----
-
 ## Estados (Enum / State)
 
 ### STATUSANIMAL
@@ -23,8 +21,6 @@
 * DEVOLVIDO
 * QUARENTENA
 * INADOTAVEL
-
----
 
 ## Classes
 
@@ -42,7 +38,8 @@
 
 **Animal (Abstrata)**
 * **Herda de:** `VacinavelMixin`, `AdestravelMixin`
-* **Atributos:** `especie`, `raça`, `nome`, `sexo`, `idade_meses`, `porte`, `temperamento`, `status` (Tipo: StatusAnimal), `historico_eventos`
+* **Atributos:** `id_animal`, `especie`, `raça`, `nome`, `sexo`, `idade_meses`, `porte`, `temperamento`, `status` (Tipo: StatusAnimal), `historico_eventos`
+* **Métodos:** `mudar_status()`, `registrar_evento()`
 * **Métodos Especiais:** `__str__()`, `__repr__()`, `__eq__()`, `__hash__()`, `__lt__()`, `__iter__()`
 
 **Cachorro**
@@ -56,11 +53,12 @@
 ### Pessoas e Adotantes
 
 **Pessoa**
-* **Atributos:** `nome`, `idade`
+* **Atributos:** `cpf`, `nome`, `idade`, `telefone`, `email`
 
 **Adotante**
 * **Herda de:** `Pessoa`
 * **Atributos:** `moradia` (casa/apto), `area_util`, `experiencia_pets` (sim/não), `criancas` (sim/não, idade, quantidade), `outros_animais` (sim/não, porte, quantidade), `experiencia_anterior` (sim/não, quantidade)
+* **Métodos:** `calcular_pontuacao_compatibilidade(animal)`
 
 ### Padrão Strategy (Taxas)
 
@@ -76,10 +74,11 @@
 
 **Politica (Superclasse)**
 * **Atributos:** `settings.json` (arquivo lido para definir pesos e regras)
+* **Métodos:** `carregar_configuracoes()`
 
 **Estratégias Concretas (Herdam de Politica):**
-* PoliticaReserva
-* PoliticaAdocao
+* PoliticaReserva: `validar_elegibilidade()`, `obter_duracao_reserva()`
+* PoliticaAdocao: `validar_idade_minima()`, `validar_moradia_porte()`
 * PoliticaDevolucao
 * PoliticaQuarentena
 
@@ -87,23 +86,23 @@
 
 **Repositorio**
 * **Atributos:** `caminho_arquivo`
-* **Métodos:** `salvar()`, `carregar()`, `buscar()`, `deletar()`
+* **Métodos:** `salvar()`, `carregar()`, `buscar()`, `deletar()`, `inserir()`, `atualizar()`
 
 **FilaEspera**
-* **Atributos:** `animal`, `fila`
-* **Métodos:** `adicionar()`, `remover()`, `proximo()`, `__len__()`, `comparadores_prioridade()` (ex: `__lt__` para ordenação da fila)
+* **Atributos:** `animal`, `fila` (Lista de Adotantes com `data_entrada`)
+* **Métodos:** `adicionar()`, `remover()`, `proximo()`, `notificar_proximo()`, `__len__()`, `comparadores_prioridade()` (ex: `__lt__` para ordenação da fila por pontuação e tempo)
 
 **Reserva**
-* **Atributos:** `animal`, `adotante`, `politica_reserva`, `data_criacao`, `status_reserva`
-* **Métodos:** `verificar_expiracao()`
+* **Atributos:** `id_reserva`, `animal`, `adotante`, `politica_reserva`, `data_criacao`, `status_reserva`
+* **Métodos:** `verificar_expiracao()`, `cancelar()`, `confirmar()`
 
 **Adoção**
-* **Atributos:** `reserva`, `politica_adocao`, `taxa` (Calculada via Strategy), `contrato`, `data_adocao`
+* **Atributos:** `id_adocao`, `reserva`, `politica_adocao`, `taxa` (Calculada via Strategy), `contrato`, `data_adocao`
+* **Métodos:** `efetivar()`, `gerar_contrato()`
 
 **Devolução**
-* **Atributos:** `adocao`, `motivo`, `data_devolucao`, `status`
-
----
+* **Atributos:** `id_devolucao`, `adocao`, `motivo`, `condicao_animal`, `data_devolucao`, `status`
+* **Métodos:** `processar_devolucao()`, `reavaliar_animal()`
 
 ## Relacionamentos
 * **Adotante <-> Reserva:** Um adotante pode fazer uma ou mais reservas (conforme política).
@@ -112,3 +111,9 @@
 * **Adoção -> Devolução:** Uma devolução reverte o processo de uma adoção.
 * **Animal <-> FilaEspera:** Um animal muito disputado possui uma fila de espera de vários adotantes.
 * **Adotante -> Animal:** A compatibilidade é calculada entre os atributos de ambos.
+
+## Exceções Customizadas
+* `ReservaInvalidaError` — disparada quando uma reserva viola as regras de política
+* `TransicaoDeEstadoInvalidaError` — disparada quando uma transição de status não é permitida
+* `PoliticaNaoAtendidaError` — disparada quando um adotante não atende aos critérios de elegibilidade
+* `RepositorioError` — disparada quando ocorre falha ao salvar ou carregar dados
