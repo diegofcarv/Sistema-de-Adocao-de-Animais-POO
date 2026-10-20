@@ -4,10 +4,20 @@ from .status_animal import StatusAnimal
 from .vacinavel_mixin import VacinavelMixin
 from .adestravel_mixin import AdestravelMixin
 
+# Transições de estado permitidas pelo sistema
+TRANSICOES_VALIDAS = {
+    StatusAnimal.DISPONIVEL:  {StatusAnimal.RESERVADO, StatusAnimal.INADOTAVEL},
+    StatusAnimal.RESERVADO:   {StatusAnimal.ADOTADO, StatusAnimal.DISPONIVEL},
+    StatusAnimal.ADOTADO:     {StatusAnimal.DEVOLVIDO},
+    StatusAnimal.DEVOLVIDO:   {StatusAnimal.QUARENTENA, StatusAnimal.DISPONIVEL, StatusAnimal.INADOTAVEL},
+    StatusAnimal.QUARENTENA:  {StatusAnimal.DISPONIVEL, StatusAnimal.INADOTAVEL},
+    StatusAnimal.INADOTAVEL:  set(),
+}
+
 class Animal(ABC, VacinavelMixin, AdestravelMixin):
     """Classe abstrata que representa um animal do sistema."""
-    
-    def __init__(self, id_animal: str, raca: str, nome: str, sexo: str, 
+
+    def __init__(self, id_animal: str, raca: str, nome: str, sexo: str,
                  idade_meses: int, porte: str, temperamento: List[str], data_entrada: str):
         self.id_animal = id_animal
         self.raca = raca
@@ -17,7 +27,7 @@ class Animal(ABC, VacinavelMixin, AdestravelMixin):
         self.data_entrada = data_entrada
         self.status = StatusAnimal.DISPONIVEL
         self.historico_eventos: List[str] = []
-        
+
         self.idade_meses = idade_meses
         self.porte = porte
 
@@ -48,7 +58,21 @@ class Animal(ABC, VacinavelMixin, AdestravelMixin):
         self.historico_eventos.append(evento)
 
     def mudar_status(self, novo_status: StatusAnimal) -> None:
-        """Altera o status do animal e registra no histórico."""
+        """
+        Altera o status do animal, validando a transição e registrando no histórico.
+
+        Args:
+            novo_status (StatusAnimal): Novo status desejado.
+
+        Raises:
+            TransicaoDeEstadoInvalidaError: Se a transição não for permitida.
+        """
+        from .excecoes import TransicaoDeEstadoInvalidaError
+        permitidos = TRANSICOES_VALIDAS.get(self.status, set())
+        if novo_status not in permitidos:
+            raise TransicaoDeEstadoInvalidaError(
+                f"Transição inválida: {self.status.value} → {novo_status.value}"
+            )
         self.status = novo_status
         self.registrar_evento(f"Status alterado para {novo_status.value}")
 

@@ -5,7 +5,7 @@ class VacinavelMixin:
     def vacinar(self, vacina: str) -> None:
         """
         Registra uma vacina no histórico.
-        
+
         Args:
             vacina (str): Nome da vacina.
         """

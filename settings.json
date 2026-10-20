@@ -1,0 +1,17 @@
+{
+    "idade_minima_adotante": 18,
+    "regras_moradia_porte": {
+        "G": {"moradia": "casa", "area_minima": 80},
+        "M": {"area_minima_apto": 50},
+        "P": {}
+    },
+    "duracao_reserva_horas": 48,
+    "pesos_compatibilidade": {
+        "porte_moradia": 30,
+        "experiencia_pets": 20,
+        "criancas_temperamento": 20,
+        "outros_animais": 15,
+        "experiencia_anterior": 15
+    },
+    "estrategia_taxa_padrao": "SeniorFee"
+}

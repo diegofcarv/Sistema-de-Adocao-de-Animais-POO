@@ -3,7 +3,7 @@ class AdestravelMixin:
     def treinar(self, comando: str) -> None:
         """
         Registra um novo comando ensinado ao animal.
-        
+
         Args:
             comando (str): O comando ensinado.
         """
