@@ -6,8 +6,8 @@ Gera relatórios sobre animais disponíveis, adotados e estatísticas do sistema
 from typing import List, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from classes.animal import Animal
-    from classes.adotante import Adotante
+    from classes.animais.animal import Animal
+    from classes.pessoas.adotante import Adotante
 
 
 def relatorio_animais_por_status(animais: List["Animal"]) -> str:
