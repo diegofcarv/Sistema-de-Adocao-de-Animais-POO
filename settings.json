@@ -1,5 +1,7 @@
 {
     "idade_minima_adotante": 18,
+    "limite_filhote_meses": 12,
+    "limite_senior_meses": 84,
     "regras_moradia_porte": {
         "G": {"moradia": "casa", "area_minima": 80},
         "M": {"area_minima_apto": 50},
@@ -13,5 +15,6 @@
         "outros_animais": 15,
         "experiencia_anterior": 15
     },
-    "estrategia_taxa_padrao": "SeniorFee"
+    "estrategia_taxa_padrao": "StandardFee",
+    "taxa_padrao_valor": 150.0
 }

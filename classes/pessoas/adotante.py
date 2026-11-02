@@ -29,9 +29,42 @@ class Adotante(Pessoa):
             raise ValueError("Moradia deve ser 'casa' ou 'apto'.")
         self._moradia = valor
 
+    def para_dict(self) -> dict:
+        """Converte o adotante em dicionário para persistência."""
+        return {
+            "cpf": self.cpf,
+            "nome": self.nome,
+            "idade": self.idade,
+            "telefone": self.telefone,
+            "email": self.email,
+            "moradia": self.moradia,
+            "area_util": self.area_util,
+            "experiencia_pets": self.experiencia_pets,
+            "criancas": self.criancas,
+            "outros_animais": self.outros_animais,
+            "experiencia_anterior": self.experiencia_anterior,
+        }
+
+    @classmethod
+    def de_dict(cls, dados: dict) -> "Adotante":
+        """Reconstrói um Adotante a partir de um dicionário."""
+        return cls(
+            cpf=dados["cpf"],
+            nome=dados["nome"],
+            idade=dados["idade"],
+            telefone=dados["telefone"],
+            email=dados["email"],
+            moradia=dados["moradia"],
+            area_util=dados["area_util"],
+            experiencia_pets=dados["experiencia_pets"],
+            criancas=dados.get("criancas", {}),
+            outros_animais=dados.get("outros_animais", {}),
+            experiencia_anterior=dados.get("experiencia_anterior", {}),
+        )
+
     def calcular_pontuacao_compatibilidade(self, animal: "Animal") -> float:
         """
-        Calcula a pontuação de compatibilidade (0–100) entre o adotante e um animal.
+        Calcula a pontuação de compatibilidade (0-100) entre o adotante e um animal.
 
         Os critérios ponderados são:
         - Porte x moradia/área útil          (peso 30)
