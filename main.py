@@ -1,244 +1,248 @@
-import argparse
 import sys
+import os
 sys.stdout.reconfigure(encoding='utf-8')
 
 from classes.sistema_adocao import SistemaAdocao
 from classes.excecoes import ReservaInvalidaError, PoliticaNaoAtendidaError, RepositorioError
 
+# ── Funções Auxiliares de Validação de Input ──
 
-def cmd_cadastrar_animal(args):
-    sistema = SistemaAdocao()
-    temperamento = args.temperamento.split(',') if args.temperamento else []
+def obter_inteiro(prompt: str) -> int:
+    while True:
+        try:
+            return int(input(prompt))
+        except ValueError:
+            print("Erro: Por favor, digite apenas números inteiros.")
+
+def obter_float(prompt: str) -> float:
+    while True:
+        try:
+            valor = input(prompt).replace(',', '.')
+            return float(valor)
+        except ValueError:
+            print("Erro: Digite um número válido (ex: 120.5).")
+
+def obter_sim_nao(prompt: str) -> bool:
+    while True:
+        resposta = input(prompt).strip().lower()
+        if resposta in ['s', 'sim', 'y', 'yes']:
+            return True
+        elif resposta in ['n', 'nao', 'não', 'no']:
+            return False
+        print("Erro: Digite 'S' para Sim ou 'N' para Não.")
+
+def limpar_tela():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+# ── Telas de Interação ──
+
+def tela_cadastrar_animal(sistema: SistemaAdocao):
+    print("\n--- CADASTRO DE ANIMAL ---")
+    while True:
+        especie = input("Espécie (cachorro/gato): ").strip().lower()
+        if especie in ['cachorro', 'gato']:
+            break
+        print("Espécie inválida.")
+
     dados = {
-        'especie': args.especie,
-        'id_animal': args.id,
-        'raca': args.raca,
-        'nome': args.nome,
-        'sexo': args.sexo,
-        'idade_meses': args.idade_meses,
-        'porte': args.porte,
-        'temperamento': temperamento,
-        'data_entrada': args.data_entrada,
-        'necessidade_passeio': getattr(args, 'necessidade_passeio', 'media'),
-        'independencia': getattr(args, 'independencia', 'media'),
+        'especie': especie,
+        'id_animal': input("ID do animal (ex: C001): ").strip().upper(),
+        'raca': input("Raça: ").strip().title(),
+        'nome': input("Nome do animal: ").strip().title(),
+        'sexo': input("Sexo (M/F): ").strip().upper(),
+        'idade_meses': obter_inteiro("Idade (em meses): "),
+        'porte': input("Porte (P/M/G): ").strip().upper(),
+        'temperamento': input("Temperamento (separado por vírgula): ").split(','),
+        'data_entrada': input("Data de entrada (AAAA-MM-DD) ou deixe vazio para hoje: ").strip()
     }
-    sistema.cadastrar_animal(dados)
+    
+    # Limpeza de temperamentos vazios
+    dados['temperamento'] = [t.strip() for t in dados['temperamento'] if t.strip()]
+
+    if especie == 'cachorro':
+        dados['necessidade_passeio'] = input("Necessidade de passeio (baixa/media/alta): ").strip().lower() or 'media'
+    else:
+        dados['independencia'] = input("Nível de independência (baixa/media/alta): ").strip().lower() or 'media'
+
+    mensagem = sistema.cadastrar_animal(dados)
+    print(f"\n {mensagem}")
 
 
-def cmd_listar_animais(args):
-    sistema = SistemaAdocao()
-    animais = sistema.listar_animais(status=args.status)
+def tela_listar_animais(sistema: SistemaAdocao):
+    print("\n--- LISTA DE ANIMAIS ---")
+    status = input("Filtrar por status (Deixe em branco para todos, ou digite DISPONIVEL, RESERVADO, etc): ").strip().upper()
+    animais = sistema.listar_animais(status=status if status else None)
+    
     if not animais:
         print("Nenhum animal encontrado.")
         return
-    print(f"\n{'ID':<8} {'Nome':<15} {'Especie':<10} {'Raca':<15} {'Porte':<6} {'Status'}")
-    print('-' * 65)
+        
+    print(f"\n{'ID':<8} {'Nome':<15} {'Espécie':<10} {'Raça':<15} {'Porte':<6} {'Status'}")
+    print('-' * 70)
     for a in animais:
         print(f"{a['id_animal']:<8} {a['nome']:<15} {a['especie']:<10} {a['raca']:<15} {a['porte']:<6} {a['status']}")
 
 
-def cmd_cadastrar_adotante(args):
-    sistema = SistemaAdocao()
+def tela_cadastrar_adotante(sistema: SistemaAdocao):
+    print("\n--- CADASTRO DE ADOTANTE ---")
     dados = {
-        'cpf': args.cpf,
-        'nome': args.nome,
-        'idade': args.idade,
-        'telefone': args.telefone,
-        'email': args.email,
-        'moradia': args.moradia,
-        'area_util': args.area_util,
-        'experiencia_pets': args.experiencia_pets,
-        'criancas': {'tem_criancas': args.criancas},
-        'outros_animais': {'tem_outros': args.outros_animais},
-        'experiencia_anterior': {'quantidade': args.experiencia_anterior},
+        'cpf': input("CPF (apenas números ou com formatação): ").strip(),
+        'nome': input("Nome Completo: ").strip().title(),
+        'idade': obter_inteiro("Idade: "),
+        'telefone': input("Telefone: ").strip(),
+        'email': input("E-mail: ").strip(),
+        'moradia': input("Moradia (casa/apto): ").strip().lower(),
+        'area_util': obter_float("Área útil da residência (m²): "),
+        'experiencia_pets': obter_sim_nao("Já possuiu pets antes? (s/n): "),
+        'criancas': {'tem_criancas': obter_sim_nao("Tem crianças em casa? (s/n): ")},
+        'outros_animais': {'tem_outros': obter_sim_nao("Tem outros animais atualmente? (s/n): ")},
+        'experiencia_anterior': {'quantidade': obter_inteiro("Quantos pets já teve? ")}
     }
-    sistema.cadastrar_adotante(dados)
+    
+    mensagem = sistema.cadastrar_adotante(dados)
+    print(f"\n {mensagem}")
 
 
-def cmd_listar_adotantes(args):
-    sistema = SistemaAdocao()
+def tela_listar_adotantes(sistema: SistemaAdocao):
+    print("\n--- LISTA DE ADOTANTES ---")
     adotantes = sistema.listar_adotantes()
     if not adotantes:
         print("Nenhum adotante cadastrado.")
         return
     print(f"\n{'CPF':<15} {'Nome':<20} {'Idade':<6} {'Moradia'}")
-    print('-' * 50)
+    print('-' * 55)
     for a in adotantes:
         print(f"{a['cpf']:<15} {a['nome']:<20} {a['idade']:<6} {a['moradia']}")
 
 
-def cmd_reservar(args):
-    sistema = SistemaAdocao()
-    sistema.reservar(args.animal, args.adotante)
+def tela_reservar(sistema: SistemaAdocao):
+    print("\n--- RESERVAR ANIMAL ---")
+    animal_id = input("ID do animal desejado: ").strip().upper()
+    adotante_cpf = input("CPF do adotante: ").strip()
+    
+    mensagem = sistema.reservar(animal_id, adotante_cpf)
+    print(f"\n {mensagem}")
 
 
-def cmd_adotar(args):
-    sistema = SistemaAdocao()
-    sistema.adotar(args.animal, args.adotante)
+def tela_adotar(sistema: SistemaAdocao):
+    print("\n--- EFETIVAR ADOÇÃO ---")
+    animal_id = input("ID do animal reservado: ").strip().upper()
+    adotante_cpf = input("CPF do adotante: ").strip()
+    
+    contrato = sistema.adotar(animal_id, adotante_cpf)
+    print("\n" + "="*40)
+    print("CONTRATO GERADO COM SUCESSO:")
+    print("="*40)
+    print(contrato)
 
 
-def cmd_devolver(args):
-    sistema = SistemaAdocao()
-    sistema.devolver(args.animal, args.motivo, args.condicao)
+def tela_devolver(sistema: SistemaAdocao):
+    print("\n--- DEVOLVER ANIMAL ---")
+    animal_id = input("ID do animal a ser devolvido: ").strip().upper()
+    motivo = input("Motivo da devolução (ex: incompatibilidade_comportamental): ").strip().lower()
+    condicao = input("Condição física do animal (ex: saudavel, doente): ").strip().lower()
+    
+    mensagem = sistema.devolver(animal_id, motivo, condicao)
+    print(f"\n {mensagem}")
 
 
-def cmd_compatibilidade(args):
-    sistema = SistemaAdocao()
-    resultado = sistema.compatibilidade(args.adotante)
+def tela_compatibilidade(sistema: SistemaAdocao):
+    print("\n--- VERIFICAR COMPATIBILIDADE ---")
+    adotante_cpf = input("CPF do adotante: ").strip()
+    
+    resultado = sistema.compatibilidade(adotante_cpf)
     if not resultado:
-        print("Nenhum animal disponível para comparar.")
+        print("Nenhum animal disponível para comparar ou adotante não encontrado.")
         return
-    print(f"\n{'Pontuacao':<10} {'ID':<8} {'Nome':<15} {'Especie':<10} {'Porte'}")
-    print('-' * 55)
+        
+    print(f"\n{'Pontuação':<10} {'ID':<8} {'Nome':<15} {'Espécie':<10} {'Porte'}")
+    print('-' * 60)
     for animal, score in resultado:
         print(f"{score:<10.1f} {animal['id_animal']:<8} {animal['nome']:<15} {animal['especie']:<10} {animal['porte']}")
 
 
-def cmd_seed(args):
-    """Cadastra dados de exemplo para demonstração."""
-    sistema = SistemaAdocao()
-
+def tela_seed(sistema: SistemaAdocao):
+    print("\n--- GERANDO DADOS DE EXEMPLO ---")
     animais = [
         {'especie': 'cachorro', 'id_animal': 'C001', 'raca': 'Labrador', 'nome': 'Thor',
-         'sexo': 'M', 'idade_meses': 6, 'porte': 'G', 'temperamento': 'Brincalhao,Docil',
-         'data_entrada': '2026-09-01', 'necessidade_passeio': 'alta'},
-        {'especie': 'cachorro', 'id_animal': 'C002', 'raca': 'Poodle', 'nome': 'Mel',
-         'sexo': 'F', 'idade_meses': 96, 'porte': 'P', 'temperamento': 'Calmo,Carinhoso',
-         'data_entrada': '2026-09-10', 'necessidade_passeio': 'baixa'},
+         'sexo': 'M', 'idade_meses': 6, 'porte': 'G', 'temperamento': ['Brincalhao', 'Docil'],
+         'necessidade_passeio': 'alta'},
         {'especie': 'gato', 'id_animal': 'G001', 'raca': 'Siames', 'nome': 'Luna',
-         'sexo': 'F', 'idade_meses': 24, 'porte': 'P', 'temperamento': 'Independente',
-         'data_entrada': '2026-09-15', 'independencia': 'alta'},
-        {'especie': 'gato', 'id_animal': 'G002', 'raca': 'Persa', 'nome': 'Simba',
-         'sexo': 'M', 'idade_meses': 8, 'porte': 'P', 'temperamento': 'Docil,Brincalhao',
-         'data_entrada': '2026-10-01', 'independencia': 'media'},
+         'sexo': 'F', 'idade_meses': 24, 'porte': 'P', 'temperamento': ['Independente'],
+         'independencia': 'alta'}
     ]
-
     adotantes = [
         {'cpf': '111.111.111-11', 'nome': 'Ana Lima', 'idade': 28, 'telefone': '88911111111',
          'email': 'ana@email.com', 'moradia': 'casa', 'area_util': 120.0,
          'experiencia_pets': True, 'criancas': {'tem_criancas': False},
-         'outros_animais': {'tem_outros': False},
-         'experiencia_anterior': {'quantidade': 2}},
-        {'cpf': '222.222.222-22', 'nome': 'Carlos Melo', 'idade': 35, 'telefone': '88922222222',
-         'email': 'carlos@email.com', 'moradia': 'apto', 'area_util': 45.0,
-         'experiencia_pets': False, 'criancas': {'tem_criancas': True},
-         'outros_animais': {'tem_outros': False},
-         'experiencia_anterior': {'quantidade': 0}},
+         'outros_animais': {'tem_outros': False}, 'experiencia_anterior': {'quantidade': 2}}
     ]
 
-    print("Cadastrando dados de exemplo...")
     for a in animais:
         try:
-            a['temperamento'] = a['temperamento'].split(',')
             sistema.cadastrar_animal(a)
-        except ValueError as e:
-            print(f"  Aviso: {e}")
+            print(f"Cadastrado animal: {a['nome']}")
+        except ValueError:
+            pass
 
     for a in adotantes:
         try:
             sistema.cadastrar_adotante(a)
-        except ValueError as e:
-            print(f"  Aviso: {e}")
+            print(f"Cadastrado adotante: {a['nome']}")
+        except ValueError:
+            pass
+    print(" Seed finalizado!")
 
-    print("Dados de exemplo cadastrados.")
-
-
-def criar_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog='python main.py',
-        description='Sistema de Adocao de Animais'
-    )
-    sub = parser.add_subparsers(dest='comando', required=True)
-
-    # cadastrar-animal
-    p = sub.add_parser('cadastrar-animal', help='Cadastra um novo animal')
-    p.add_argument('--especie', required=True, choices=['cachorro', 'gato'])
-    p.add_argument('--id', required=True, help='ID unico do animal (ex: C001)')
-    p.add_argument('--raca', required=True)
-    p.add_argument('--nome', required=True)
-    p.add_argument('--sexo', required=True, choices=['M', 'F'])
-    p.add_argument('--idade-meses', dest='idade_meses', required=True, type=int)
-    p.add_argument('--porte', required=True, choices=['P', 'M', 'G'])
-    p.add_argument('--temperamento', help='Temperamentos separados por virgula')
-    p.add_argument('--data-entrada', dest='data_entrada',
-                   default=None, help='Data no formato AAAA-MM-DD')
-    p.add_argument('--necessidade-passeio', dest='necessidade_passeio', default='media')
-    p.add_argument('--independencia', default='media')
-    p.set_defaults(func=cmd_cadastrar_animal)
-
-    # listar-animais
-    p = sub.add_parser('listar-animais', help='Lista os animais cadastrados')
-    p.add_argument('--status', default=None,
-                   help='Filtra por status: DISPONIVEL, RESERVADO, ADOTADO...')
-    p.set_defaults(func=cmd_listar_animais)
-
-    # cadastrar-adotante
-    p = sub.add_parser('cadastrar-adotante', help='Cadastra um novo adotante')
-    p.add_argument('--cpf', required=True)
-    p.add_argument('--nome', required=True)
-    p.add_argument('--idade', required=True, type=int)
-    p.add_argument('--telefone', required=True)
-    p.add_argument('--email', required=True)
-    p.add_argument('--moradia', required=True, choices=['casa', 'apto'])
-    p.add_argument('--area-util', dest='area_util', required=True, type=float)
-    p.add_argument('--experiencia-pets', dest='experiencia_pets',
-                   action='store_true', default=False)
-    p.add_argument('--criancas', action='store_true', default=False)
-    p.add_argument('--outros-animais', dest='outros_animais',
-                   action='store_true', default=False)
-    p.add_argument('--experiencia-anterior', dest='experiencia_anterior',
-                   type=int, default=0)
-    p.set_defaults(func=cmd_cadastrar_adotante)
-
-    # listar-adotantes
-    p = sub.add_parser('listar-adotantes', help='Lista os adotantes cadastrados')
-    p.set_defaults(func=cmd_listar_adotantes)
-
-    # reservar
-    p = sub.add_parser('reservar', help='Reserva um animal para um adotante')
-    p.add_argument('--animal', required=True, help='ID do animal')
-    p.add_argument('--adotante', required=True, help='CPF do adotante')
-    p.set_defaults(func=cmd_reservar)
-
-    # adotar
-    p = sub.add_parser('adotar', help='Efetiva a adocao de um animal reservado')
-    p.add_argument('--animal', required=True, help='ID do animal')
-    p.add_argument('--adotante', required=True, help='CPF do adotante')
-    p.set_defaults(func=cmd_adotar)
-
-    # devolver
-    p = sub.add_parser('devolver', help='Registra a devolucao de um animal adotado')
-    p.add_argument('--animal', required=True, help='ID do animal')
-    p.add_argument('--motivo', required=True,
-                   help='Motivo da devolucao (ex: incompatibilidade_comportamental)')
-    p.add_argument('--condicao', required=True,
-                   help='Condicao do animal (ex: saudavel, doente, agressivo)')
-    p.set_defaults(func=cmd_devolver)
-
-    # compatibilidade
-    p = sub.add_parser('compatibilidade', help='Mostra compatibilidade de um adotante com os animais disponiveis')
-    p.add_argument('--adotante', required=True, help='CPF do adotante')
-    p.set_defaults(func=cmd_compatibilidade)
-
-    # seed
-    p = sub.add_parser('seed', help='Cadastra dados de exemplo para demonstracao')
-    p.set_defaults(func=cmd_seed)
-
-    return parser
-
+# ── Loop Principal ──
 
 def main():
-    parser = criar_parser()
-    args = parser.parse_args()
-    try:
-        args.func(args)
-    except (ReservaInvalidaError, PoliticaNaoAtendidaError) as e:
-        print(f"Erro de regra: {e}")
-        sys.exit(1)
-    except (ValueError, RepositorioError) as e:
-        print(f"Erro: {e}")
-        sys.exit(1)
+    sistema = SistemaAdocao()
+    
+    while True:
+        print("\n" + "="*40)
+        print("SISTEMA DE ADOÇÃO DE ANIMAIS")
+        print("="*40)
+        print("1. Cadastrar novo animal")
+        print("2. Listar animais")
+        print("3. Cadastrar novo adotante")
+        print("4. Listar adotantes")
+        print("5. Reservar animal")
+        print("6. Efetivar adoção (Gerar Contrato)")
+        print("7. Devolver animal")
+        print("8. Verificar compatibilidade (Match)")
+        print("-" * 40)
+        print("99. Inserir dados de exemplo (Seed)")
+        print("0. Sair do sistema")
+        print("="*40)
+        
+        opcao = input("Escolha uma opção: ").strip()
+        limpar_tela()
 
+        try:
+            if opcao == '1': tela_cadastrar_animal(sistema)
+            elif opcao == '2': tela_listar_animais(sistema)
+            elif opcao == '3': tela_cadastrar_adotante(sistema)
+            elif opcao == '4': tela_listar_adotantes(sistema)
+            elif opcao == '5': tela_reservar(sistema)
+            elif opcao == '6': tela_adotar(sistema)
+            elif opcao == '7': tela_devolver(sistema)
+            elif opcao == '8': tela_compatibilidade(sistema)
+            elif opcao == '99': tela_seed(sistema)
+            elif opcao == '0':
+                print("Encerrando o sistema. Até logo! 👋")
+                break
+            else:
+                print(" Opção inválida. Digite um número do menu.")
+                
+        except (ReservaInvalidaError, PoliticaNaoAtendidaError, RepositorioError) as e:
+            print(f"\n ERRO DE NEGÓCIO: {e}")
+        except ValueError as e:
+            print(f"\n ERRO DE VALIDAÇÃO: {e}")
+        except Exception as e:
+            print(f"\n ERRO INESPERADO: {e}")
+            
+        input("\nPressione [ENTER] para voltar ao menu principal...")
+        limpar_tela()
 
 if __name__ == '__main__':
     main()
