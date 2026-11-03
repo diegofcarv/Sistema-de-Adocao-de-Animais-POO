@@ -1,6 +1,6 @@
-# main.py
 import argparse
 import sys
+sys.stdout.reconfigure(encoding='utf-8')
 
 from classes.sistema_adocao import SistemaAdocao
 from classes.excecoes import ReservaInvalidaError, PoliticaNaoAtendidaError, RepositorioError
