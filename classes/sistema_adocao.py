@@ -20,16 +20,17 @@ SETTINGS_PATH = os.path.join(os.path.dirname(__file__), '..', 'settings.json')
 
 
 def _carregar_settings() -> dict:
-    with open(SETTINGS_PATH, encoding='utf-8') as f:
-        return json.load(f)
+    try:
+        with open(SETTINGS_PATH, encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 
 class SistemaAdocao:
     """
     Coordena os fluxos principais do sistema de adoção.
-
-    Carrega os dados dos arquivos JSON, executa as operações
-    e persiste o resultado ao final de cada ação.
+    Atua como Controlador (Controller) recebendo dados e retornando mensagens/resultados.
     """
 
     def __init__(self):
@@ -39,8 +40,8 @@ class SistemaAdocao:
 
     # ── animais ──────────────────────────────────────────────
 
-    def cadastrar_animal(self, dados: dict) -> None:
-        """Cadastra um novo animal no sistema."""
+    def cadastrar_animal(self, dados: dict) -> str:
+        """Cadastra um novo animal no sistema e retorna mensagem de sucesso."""
         especie = dados.get('especie', '').lower()
         if especie == 'cachorro':
             animal = Cachorro(
@@ -51,7 +52,7 @@ class SistemaAdocao:
                 idade_meses=int(dados['idade_meses']),
                 porte=dados['porte'],
                 temperamento=dados.get('temperamento', []),
-                data_entrada=dados.get('data_entrada', datetime.now().strftime('%Y-%m-%d')),
+                data_entrada=dados.get('data_entrada') or datetime.now().strftime('%Y-%m-%d'),
                 necessidade_passeio=dados.get('necessidade_passeio', 'media'),
             )
         elif especie == 'gato':
@@ -63,7 +64,7 @@ class SistemaAdocao:
                 idade_meses=int(dados['idade_meses']),
                 porte=dados['porte'],
                 temperamento=dados.get('temperamento', []),
-                data_entrada=dados.get('data_entrada', datetime.now().strftime('%Y-%m-%d')),
+                data_entrada=dados.get('data_entrada') or datetime.now().strftime('%Y-%m-%d'),
                 independencia=dados.get('independencia', 'media'),
             )
         else:
@@ -74,17 +75,15 @@ class SistemaAdocao:
             raise ValueError(f"Já existe um animal com o ID '{animal.id_animal}'.")
 
         self._repo_animais.inserir('animais', animal.para_dict())
-        print(f"Animal '{animal.nome}' cadastrado com sucesso.")
+        return f"Animal '{animal.nome}' cadastrado com sucesso."
 
     def listar_animais(self, status: str = None) -> List[dict]:
-        """Retorna a lista de animais, opcionalmente filtrada por status."""
         animais = self._repo_animais.listar('animais')
         if status:
-            animais = [a for a in animais if a['status'] == status.upper()]
+            animais = [a for a in animais if a['status'].upper() == status.upper()]
         return animais
 
     def buscar_animal(self, id_animal: str) -> dict:
-        """Busca um animal pelo ID. Lança erro se não encontrar."""
         dados = self._repo_animais.buscar('animais', 'id_animal', id_animal)
         if not dados:
             raise ValueError(f"Animal '{id_animal}' não encontrado.")
@@ -92,8 +91,8 @@ class SistemaAdocao:
 
     # ── adotantes ────────────────────────────────────────────
 
-    def cadastrar_adotante(self, dados: dict) -> None:
-        """Cadastra um novo adotante no sistema."""
+    def cadastrar_adotante(self, dados: dict) -> str:
+        """Cadastra um novo adotante e retorna mensagem de sucesso."""
         adotante = Adotante(
             cpf=dados['cpf'],
             nome=dados['nome'],
@@ -113,14 +112,12 @@ class SistemaAdocao:
             raise ValueError(f"Já existe um adotante com o CPF '{adotante.cpf}'.")
 
         self._repo_adotantes.inserir('adotantes', adotante.para_dict())
-        print(f"Adotante '{adotante.nome}' cadastrado com sucesso.")
+        return f"Adotante '{adotante.nome}' cadastrado com sucesso."
 
     def listar_adotantes(self) -> List[dict]:
-        """Retorna a lista de todos os adotantes."""
         return self._repo_adotantes.listar('adotantes')
 
     def buscar_adotante(self, cpf: str) -> dict:
-        """Busca um adotante pelo CPF. Lança erro se não encontrar."""
         dados = self._repo_adotantes.buscar('adotantes', 'cpf', cpf)
         if not dados:
             raise ValueError(f"Adotante '{cpf}' não encontrado.")
@@ -129,10 +126,6 @@ class SistemaAdocao:
     # ── fluxo de adoção ──────────────────────────────────────
 
     def reservar(self, id_animal: str, cpf_adotante: str) -> str:
-        """
-        Cria uma reserva para o animal indicado.
-        Retorna o ID da reserva criada.
-        """
         dados_animal = self.buscar_animal(id_animal)
         dados_adotante = self.buscar_adotante(cpf_adotante)
 
@@ -144,14 +137,10 @@ class SistemaAdocao:
         reserva = Reserva(id_reserva, animal, adotante, politica)
 
         self._repo_animais.atualizar('animais', 'id_animal', id_animal, animal.para_dict())
-        print(f"Reserva '{id_reserva}' criada para '{animal.nome}'.")
-        return id_reserva
+        return f"Reserva '{id_reserva}' criada com sucesso para '{animal.nome}'."
 
-    def adotar(self, id_animal: str, cpf_adotante: str) -> None:
-        """
-        Efetiva a adoção de um animal reservado.
-        Confirma a reserva, valida as políticas e gera o contrato.
-        """
+    def adotar(self, id_animal: str, cpf_adotante: str) -> str:
+        """Efetiva adoção e retorna o contrato em formato de string."""
         dados_animal = self.buscar_animal(id_animal)
         dados_adotante = self.buscar_adotante(cpf_adotante)
 
@@ -159,9 +148,7 @@ class SistemaAdocao:
         adotante = Adotante.de_dict(dados_adotante)
 
         if animal.status != StatusAnimal.RESERVADO:
-            raise ReservaInvalidaError(
-                f"Animal '{animal.nome}' não está reservado (status: {animal.status.value})."
-            )
+            raise ReservaInvalidaError(f"Animal '{animal.nome}' não está reservado.")
 
         politica_reserva = PoliticaReserva()
         reserva = Reserva.__new__(Reserva)
@@ -179,17 +166,15 @@ class SistemaAdocao:
         adocao.efetivar()
 
         self._repo_animais.atualizar('animais', 'id_animal', id_animal, animal.para_dict())
-        print(adocao.contrato)
+        return adocao.contrato
 
-    def devolver(self, id_animal: str, motivo: str, condicao: str) -> None:
-        """Registra a devolução de um animal adotado."""
+    def devolver(self, id_animal: str, motivo: str, condicao: str) -> str:
+        """Registra a devolução e retorna o novo status do animal."""
         dados_animal = self.buscar_animal(id_animal)
         animal = animal_de_dict(dados_animal)
 
         if animal.status != StatusAnimal.ADOTADO:
-            raise ReservaInvalidaError(
-                f"Animal '{animal.nome}' não está adotado (status: {animal.status.value})."
-            )
+            raise ReservaInvalidaError(f"Animal '{animal.nome}' não está adotado.")
 
         reserva = Reserva.__new__(Reserva)
         reserva.animal = animal
@@ -209,10 +194,9 @@ class SistemaAdocao:
         devolucao.processar_devolucao()
 
         self._repo_animais.atualizar('animais', 'id_animal', id_animal, animal.para_dict())
-        print(f"Devolução registrada. Animal '{animal.nome}' status: {animal.status.value}.")
+        return f"Devolução registrada. Status do animal '{animal.nome}' atualizado para: {animal.status.value}."
 
     def compatibilidade(self, cpf_adotante: str) -> List[tuple]:
-        """Retorna lista de (animal_dict, pontuacao) ordenada do mais ao menos compatível."""
         dados_adotante = self.buscar_adotante(cpf_adotante)
         adotante = Adotante.de_dict(dados_adotante)
 
@@ -229,7 +213,6 @@ class SistemaAdocao:
     # ── utilitário ───────────────────────────────────────────
 
     def _escolher_taxa(self, animal):
-        """Escolhe a estratégia de taxa com base na idade do animal."""
         settings = _carregar_settings()
         limite_filhote = settings.get('limite_filhote_meses', 12)
         limite_senior = settings.get('limite_senior_meses', 84)
